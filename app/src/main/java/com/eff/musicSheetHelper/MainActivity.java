@@ -1,4 +1,4 @@
-package com.example.unbounds.musicguesser;
+package com.eff.musicSheetHelper;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -8,6 +8,8 @@ import android.support.v7.app.ActionBarActivity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.TextView;
+
+import com.example.unbounds.musicSheetHelper.R;
 
 
 public class MainActivity extends ActionBarActivity implements View.OnClickListener {

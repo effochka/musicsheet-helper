@@ -1,4 +1,4 @@
-package com.example.unbounds.musicguesser;
+package com.eff.musicSheetHelper;
 
 /*************************************************************************
  *  Compilation:  javac FFT.java
