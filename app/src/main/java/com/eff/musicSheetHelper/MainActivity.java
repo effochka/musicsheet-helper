@@ -9,8 +9,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.TextView;
 
-import com.example.unbounds.musicSheetHelper.R;
-
 
 public class MainActivity extends ActionBarActivity implements View.OnClickListener {
 

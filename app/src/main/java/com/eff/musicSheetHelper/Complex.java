@@ -1,6 +1,9 @@
 package com.eff.musicSheetHelper;
 
 /*************************************************************************
+ *  Copyright © 2000–2011, Robert Sedgewick and Kevin Wayne.
+ *  Complex.java - http://introcs.cs.princeton.edu/java/97data/Complex.java.html
+ *
  *  Compilation:  javac Complex.java
  *  Execution:    java Complex
  *

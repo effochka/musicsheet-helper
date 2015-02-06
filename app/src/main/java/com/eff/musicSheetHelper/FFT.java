@@ -1,6 +1,8 @@
 package com.eff.musicSheetHelper;
 
 /*************************************************************************
+ *  Copyright © 2000–2011, Robert Sedgewick and Kevin Wayne.
+ *  http://introcs.cs.princeton.edu/java/97data/FFT.java.html
  *  Compilation:  javac FFT.java
  *  Execution:    java FFT N
  *  Dependencies: Complex.java
