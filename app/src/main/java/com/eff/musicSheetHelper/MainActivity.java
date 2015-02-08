@@ -89,12 +89,12 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             recorder.read(sData, 0, BUFFER_ELEMENTS_REC);
             byte bData[] = convertShort2Byte(sData);
             final int frequency = calculateFrequency(bData);
-
+            final Note note = Note.findClosestNote(frequency);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
 
-                    frequencyTextView.setText("" + frequency);
+                    frequencyTextView.setText(note.getName());
                 }
             });
         }
