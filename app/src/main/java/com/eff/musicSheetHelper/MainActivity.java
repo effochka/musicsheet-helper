@@ -5,9 +5,15 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
-import android.view.KeyEvent;
 import android.view.View;
 import android.widget.TextView;
+
+import rx.Observable;
+import rx.Subscriber;
+import rx.Subscription;
+import rx.android.schedulers.AndroidSchedulers;
+import rx.functions.Action1;
+import rx.schedulers.Schedulers;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -17,59 +23,60 @@ public class MainActivity extends ActionBarActivity {
 	private static final int BUFFER_ELEMENTS_REC = 1024;
 	private static final int BYTES_PER_ELEMENT = 2;
 
-	private AudioRecord recorder;
-	private Thread recordingThread;
-	private boolean isRecording;
-
-	private TextView frequencyTextView;
-
+	private Subscription mNoteSubscription;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		frequencyTextView = (TextView) findViewById(R.id.main_note);
 
+		final TextView frequencyTextView = (TextView) findViewById(R.id.main_note);
 		final TextView startStopTextView = (TextView) findViewById(R.id.main_start_stop);
 		startStopTextView.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View view) {
-				if (isRecording) {
+				if (mNoteSubscription != null) {
 					startStopTextView.setText(R.string.start);
-					stopRecording();
+					mNoteSubscription.unsubscribe();
+					mNoteSubscription = null;
 				} else {
 					startStopTextView.setText(R.string.stop);
-					startRecording();
+					mNoteSubscription = getRecordingObservable().subscribe(new Action1<Note>() {
+						@Override
+						public void call(final Note note) {
+							frequencyTextView.setText(note.getName());
+						}
+					});
 				}
 			}
 		});
 	}
 
-	private void startRecording() {
-		if (!isRecording) {
-			recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
-					RECORDER_SAMPLE_RATE, RECORDER_CHANNELS,
-					RECORDER_AUDIO_ENCODING, BUFFER_ELEMENTS_REC * BYTES_PER_ELEMENT);
-			recorder.startRecording();
-			isRecording = true;
-			recordingThread = new Thread(new Runnable() {
-				public void run() {
-					calculateUpdateFrequencyTextView();
-				}
-			}, "AudioRecorder Thread");
-			recordingThread.start();
-		}
-	}
+	private Observable<Note> getRecordingObservable() {
+		return Observable.create(new Observable.OnSubscribe<Note>() {
+			@Override
+			public void call(final Subscriber<? super Note> subscriber) {
+				final AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
+						RECORDER_SAMPLE_RATE, RECORDER_CHANNELS,
+						RECORDER_AUDIO_ENCODING, BUFFER_ELEMENTS_REC * BYTES_PER_ELEMENT);
+				recorder.startRecording();
 
-	private void stopRecording() {
-		// stops the recording activity
-		if (null != recorder && isRecording) {
-			isRecording = false;
-			recorder.stop();
-			recorder.release();
-			recorder = null;
-			recordingThread = null;
-		}
+				short sData[] = new short[BUFFER_ELEMENTS_REC];
+
+				while (!subscriber.isUnsubscribed()) {
+					// gets the voice output from microphone to byte format
+					recorder.read(sData, 0, BUFFER_ELEMENTS_REC);
+					byte bData[] = convertShort2Byte(sData);
+					final int frequency = calculateFrequency(bData);
+					final Note note = Note.findClosestNote(frequency);
+					subscriber.onNext(note);
+				}
+				recorder.stop();
+				recorder.release();
+				subscriber.onCompleted();
+			}
+		}).subscribeOn(Schedulers.newThread())
+				.observeOn(AndroidSchedulers.mainThread());
 	}
 
 	private byte[] convertShort2Byte(short[] sData) {
@@ -82,34 +89,7 @@ public class MainActivity extends ActionBarActivity {
 		return bytes;
 	}
 
-	private void calculateUpdateFrequencyTextView() {
-		short sData[] = new short[BUFFER_ELEMENTS_REC];
-
-		while (isRecording) {
-			// gets the voice output from microphone to byte format
-			recorder.read(sData, 0, BUFFER_ELEMENTS_REC);
-			byte bData[] = convertShort2Byte(sData);
-			final int frequency = calculateFrequency(bData);
-			final Note note = Note.findClosestNote(frequency);
-			runOnUiThread(new Runnable() {
-				@Override
-				public void run() {
-					frequencyTextView.setText(note.getName());
-				}
-			});
-		}
-	}
-
-
-	@Override
-	public boolean onKeyDown(int keyCode, KeyEvent event) {
-		if (keyCode == KeyEvent.KEYCODE_BACK) {
-			stopRecording();
-		}
-		return super.onKeyDown(keyCode, event);
-	}
-
-	public int calculateFrequency(byte[] signal) {
+	private int calculateFrequency(byte[] signal) {
 		final int mNumberOfFFTPoints = 1024;
 		double mMaxFFTSample;
 		int freq;
@@ -140,4 +120,11 @@ public class MainActivity extends ActionBarActivity {
 		return freq;
 	}
 
+	@Override
+	protected void onDestroy() {
+		if (mNoteSubscription != null) {
+			mNoteSubscription.unsubscribe();
+		}
+		super.onDestroy();
+	}
 }
