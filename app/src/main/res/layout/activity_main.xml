@@ -11,9 +11,17 @@
 		android:id="@+id/main_note"
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
-		android:layout_marginBottom="30dp"
+		android:layout_marginBottom="10dp"
 		android:text="@string/press_start"
 		android:textSize="40sp"/>
+
+	<TextView
+		android:id="@+id/main_frequency"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginBottom="30dp"
+		android:text="@string/press_start"
+		android:textSize="20sp"/>
 
 	<TextView
 		android:id="@+id/main_start_stop"

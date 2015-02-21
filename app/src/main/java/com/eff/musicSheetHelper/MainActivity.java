@@ -5,8 +5,12 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
+import android.util.Pair;
 import android.view.View;
 import android.widget.TextView;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import rx.Observable;
 import rx.Subscriber;
@@ -23,6 +27,8 @@ public class MainActivity extends ActionBarActivity {
 	private static final int BUFFER_ELEMENTS_REC = 1024;
 	private static final int BYTES_PER_ELEMENT = 2;
 
+	private static final int NOTE_AVERAGE_SPAN = 5;
+
 	private Subscription mNoteSubscription;
 
 	@Override
@@ -30,7 +36,8 @@ public class MainActivity extends ActionBarActivity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 
-		final TextView frequencyTextView = (TextView) findViewById(R.id.main_note);
+		final TextView noteTextView = (TextView) findViewById(R.id.main_note);
+		final TextView frequencyTextView = (TextView) findViewById(R.id.main_frequency);
 		final TextView startStopTextView = (TextView) findViewById(R.id.main_start_stop);
 		startStopTextView.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -41,10 +48,11 @@ public class MainActivity extends ActionBarActivity {
 					mNoteSubscription = null;
 				} else {
 					startStopTextView.setText(R.string.stop);
-					mNoteSubscription = getRecordingObservable().subscribe(new Action1<Note>() {
+					mNoteSubscription = getRecordingObservable().subscribe(new Action1<Pair<Note, Double>>() {
 						@Override
-						public void call(final Note note) {
-							frequencyTextView.setText(note.getName());
+						public void call(final Pair<Note, Double> pair) {
+							noteTextView.setText(pair.first.getName());
+							frequencyTextView.setText("" + pair.second);
 						}
 					});
 				}
@@ -52,10 +60,10 @@ public class MainActivity extends ActionBarActivity {
 		});
 	}
 
-	private Observable<Note> getRecordingObservable() {
-		return Observable.create(new Observable.OnSubscribe<Note>() {
+	private Observable<Pair<Note, Double>> getRecordingObservable() {
+		return Observable.create(new Observable.OnSubscribe<Pair<Note, Double>>() {
 			@Override
-			public void call(final Subscriber<? super Note> subscriber) {
+			public void call(final Subscriber<? super Pair<Note, Double>> subscriber) {
 				final AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
 						RECORDER_SAMPLE_RATE, RECORDER_CHANNELS,
 						RECORDER_AUDIO_ENCODING, BUFFER_ELEMENTS_REC * BYTES_PER_ELEMENT);
@@ -63,20 +71,44 @@ public class MainActivity extends ActionBarActivity {
 
 				short sData[] = new short[BUFFER_ELEMENTS_REC];
 
+				final Map<Note, MutableInt> notes = new HashMap<>();
+				Note mostFrequentNote = null;
+				int counter = 0;
+
 				while (!subscriber.isUnsubscribed()) {
 					// gets the voice output from microphone to byte format
 					recorder.read(sData, 0, BUFFER_ELEMENTS_REC);
 					byte bData[] = convertShort2Byte(sData);
-					final int frequency = calculateFrequency(bData);
-					final Note note = Note.findClosestNote(frequency);
-					subscriber.onNext(note);
+
+					final double frequency = calculateFrequency(bData);
+					final Note closestNote = Note.findClosestNote(frequency);
+					MutableInt count = notes.get(closestNote);
+
+					if (count != null) {
+						count.increment();
+					} else {
+						count = new MutableInt();
+						notes.put(closestNote, count);
+					}
+
+					if (mostFrequentNote == null || count.value > notes.get(mostFrequentNote).value) {
+						mostFrequentNote = closestNote;
+					}
+					counter++;
+
+					if (counter == NOTE_AVERAGE_SPAN) {
+						subscriber.onNext(new Pair<>(closestNote, frequency));
+						mostFrequentNote = null;
+						counter = 0;
+						notes.clear();
+					}
 				}
 				recorder.stop();
 				recorder.release();
 				subscriber.onCompleted();
 			}
-		}).subscribeOn(Schedulers.newThread())
-				.observeOn(AndroidSchedulers.mainThread());
+		}).subscribeOn(Schedulers.newThread()).
+				observeOn(AndroidSchedulers.mainThread());
 	}
 
 	private byte[] convertShort2Byte(short[] sData) {
@@ -89,10 +121,9 @@ public class MainActivity extends ActionBarActivity {
 		return bytes;
 	}
 
-	private int calculateFrequency(byte[] signal) {
+	private double calculateFrequency(byte[] signal) {
 		final int mNumberOfFFTPoints = 1024;
 		double mMaxFFTSample;
-		int freq;
 		double temp;
 		Complex[] y;
 		Complex[] complexSignal = new Complex[mNumberOfFFTPoints];
@@ -115,9 +146,7 @@ public class MainActivity extends ActionBarActivity {
 			}
 		}
 
-		freq = mPeakPos * RECORDER_SAMPLE_RATE / mNumberOfFFTPoints;
-
-		return freq;
+		return (double) mPeakPos * (double) RECORDER_SAMPLE_RATE / (double) mNumberOfFFTPoints;
 	}
 
 	@Override
@@ -126,5 +155,13 @@ public class MainActivity extends ActionBarActivity {
 			mNoteSubscription.unsubscribe();
 		}
 		super.onDestroy();
+	}
+
+	private class MutableInt {
+		int value = 1; // note that we start at 1 since we're counting
+
+		public void increment() {
+			value++;
+		}
 	}
 }
