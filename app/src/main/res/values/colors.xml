@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<color name="oil_blue">#556270</color>
+	<color name="sky_blue">#4ECDC4</color>
+	<color name="acid_green">#C7F464</color>
+	<color name="hot_pink">#FF6B6B</color>
+	<color name="blood_red">#C44D58</color>
+	<color name="coal_gray">#545248</color>
+	<color name="titanium_gray">#A5A290</color>
+	<color name="ash_gray">#E1DFD0</color>
+	<color name="tarnished_silver">#F7F5EC</color>
+	<color name="vomit_green">#A8C268</color>
+</resources>
